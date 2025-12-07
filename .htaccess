@@ -1,20 +1,23 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
+    # Disable directory listing
+    Options -Indexes +FollowSymLinks
+    
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
     
-    # Redirect all requests to the public folder
-    # Skip if already in public folder or if file/directory exists
-    RewriteCond %{REQUEST_URI} !^/public/
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(.*)$ public/$1 [L]
+    # Don't redirect if already in public folder
+    RewriteCond %{REQUEST_URI} ^public/ [OR]
+    RewriteCond %{REQUEST_URI} ^/glove-academy/public/
+    RewriteRule ^ - [L]
     
-    # If the request is for a file that exists in public, serve it directly
+    # Don't redirect if it's a real file in root
     RewriteCond %{REQUEST_FILENAME} -f
-    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^ - [L]
+    
+    # Redirect everything else to public folder
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
 
