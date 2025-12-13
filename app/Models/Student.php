@@ -32,12 +32,15 @@ class Student extends Model
         'admission_term',
         'status',
         'promoted_this_session',
+        'result_access_restricted',
+        'result_restriction_message',
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
         'is_active' => 'boolean',
         'promoted_this_session' => 'boolean',
+        'result_access_restricted' => 'boolean',
     ];
 
     /**

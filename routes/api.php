@@ -96,6 +96,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/students/{student}', [AdminController::class, 'getStudent']);
         Route::put('/admin/students/{student}', [AdminController::class, 'updateStudent']);
         Route::delete('/admin/students/{student}', [AdminController::class, 'deleteStudent']);
+        Route::post('/admin/students/{student}/toggle-result-access', [AdminController::class, 'toggleResultAccess']);
         
         // Score management
         Route::get('/admin/scores', [ScoreController::class, 'adminIndex']);

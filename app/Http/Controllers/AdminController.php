@@ -513,6 +513,35 @@ class AdminController extends Controller
     }
 
     /**
+     * Toggle result access restriction for a student
+     */
+    public function toggleResultAccess(Request $request, Student $student)
+    {
+        $request->validate([
+            'restricted' => 'required|boolean',
+            'restriction_message' => 'nullable|string|max:1000',
+        ]);
+
+        $defaultMessage = 'Your result access has been restricted. Please complete your school fees to view your results.';
+        
+        $student->update([
+            'result_access_restricted' => $request->restricted,
+            'result_restriction_message' => $request->restricted 
+                ? ($request->restriction_message ?? $defaultMessage)
+                : null,
+        ]);
+
+        $message = $request->restricted 
+            ? 'Result access has been restricted for this student.'
+            : 'Result access has been restored for this student.';
+
+        return response()->json([
+            'message' => $message,
+            'student' => $student->load(['schoolClass', 'studentSubjects.subject']),
+        ]);
+    }
+
+    /**
      * Get recent teacher activities (scores, attendance, student additions)
      */
     public function getTeacherActivities(Request $request)

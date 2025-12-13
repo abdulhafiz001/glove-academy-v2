@@ -309,6 +309,14 @@ class StudentController extends Controller
     {
         $student = $request->user();
         
+        // Check if result access is restricted
+        if ($student->result_access_restricted) {
+            return response()->json([
+                'restricted' => true,
+                'message' => $student->result_restriction_message ?? 'Your result access has been restricted. Please complete your school fees to view your results.',
+            ], 403);
+        }
+        
         // Load student with admission session
         $student->load('admissionAcademicSession');
         
