@@ -92,11 +92,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/students/import', [ImportController::class, 'importStudents']);
         Route::get('/admin/students/export', [ImportController::class, 'exportStudents']);
         Route::get('/admin/students/import-template', [ImportController::class, 'downloadStudentTemplate']);
-        // Parameterized routes come after static routes
+        // Specific parameterized routes MUST come before generic {student} routes
+        Route::post('/admin/students/{student}/toggle-result-access', [AdminController::class, 'toggleResultAccess']);
+        // Generic parameterized routes come after specific routes
         Route::get('/admin/students/{student}', [AdminController::class, 'getStudent']);
         Route::put('/admin/students/{student}', [AdminController::class, 'updateStudent']);
         Route::delete('/admin/students/{student}', [AdminController::class, 'deleteStudent']);
-        Route::post('/admin/students/{student}/toggle-result-access', [AdminController::class, 'toggleResultAccess']);
         
         // Score management
         Route::get('/admin/scores', [ScoreController::class, 'adminIndex']);
