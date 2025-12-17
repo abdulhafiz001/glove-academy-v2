@@ -83,10 +83,12 @@ class ScoreController extends Controller
     {
         $teacher = $request->user();
         
-        // Get teacher's assigned subjects
-        $assignedSubjectIds = TeacherSubject::where('teacher_id', $teacher->id)
-                                          ->where('is_active', true)
-                                          ->pluck('subject_id');
+        // Get teacher's assigned subjects (cached)
+        $assignedSubjectIds = \App\Helpers\CacheHelper::getTeacherAssignments($teacher->id, function() use ($teacher) {
+            return TeacherSubject::where('teacher_id', $teacher->id)
+                ->where('is_active', true)
+                ->pluck('subject_id');
+        });
         
         if ($assignedSubjectIds->isEmpty()) {
             return response()->json(['message' => 'You are not assigned to teach any subjects'], 403);
@@ -306,10 +308,12 @@ class ScoreController extends Controller
             }
             
             $isFormTeacher = $class->form_teacher_id === $user->id;
-            $isSubjectTeacher = \App\Models\TeacherSubject::where('teacher_id', $user->id)
-                                                          ->where('class_id', $request->class_id)
-                                                          ->where('is_active', true)
-                                                          ->exists();
+            $isSubjectTeacher = \App\Helpers\CacheHelper::getTeacherAssignments($user->id, function() use ($user, $request) {
+                return \App\Models\TeacherSubject::where('teacher_id', $user->id)
+                    ->where('class_id', $request->class_id)
+                    ->where('is_active', true)
+                    ->exists();
+            });
             
             if (!$isFormTeacher && !$isSubjectTeacher) {
                 return response()->json(['message' => 'You can only manage scores for students in your assigned classes'], 403);
@@ -334,6 +338,11 @@ class ScoreController extends Controller
                 'remark' => $request->remark,
             ]);
             
+            // Invalidate related caches
+            \App\Helpers\CacheHelper::invalidateStudentScores($request->student_id, $academicSessionId, $request->subject_id, $request->term);
+            \App\Helpers\CacheHelper::invalidatePositions($request->class_id, $request->term, $academicSessionId);
+            \App\Helpers\CacheHelper::invalidateDashboard();
+            
             return response()->json([
                 'message' => 'Score updated successfully',
                 'score' => $existingScore->load(['student', 'subject', 'schoolClass'])
@@ -353,6 +362,11 @@ class ScoreController extends Controller
             'exam_score' => $request->exam_score,
             'remark' => $request->remark,
         ]);
+
+        // Invalidate related caches
+        \App\Helpers\CacheHelper::invalidateStudentScores($request->student_id, $academicSessionId, $request->subject_id, $request->term);
+        \App\Helpers\CacheHelper::invalidatePositions($request->class_id, $request->term, $academicSessionId);
+        \App\Helpers\CacheHelper::invalidateDashboard();
 
         return response()->json([
             'message' => 'Score created successfully',
@@ -400,10 +414,12 @@ class ScoreController extends Controller
             }
             
             $isFormTeacher = $class->form_teacher_id === $user->id;
-            $isSubjectTeacher = \App\Models\TeacherSubject::where('teacher_id', $user->id)
-                                                          ->where('class_id', $score->class_id)
-                                                          ->where('is_active', true)
-                                                          ->exists();
+            $isSubjectTeacher = \App\Helpers\CacheHelper::getTeacherAssignments($user->id, function() use ($user, $score) {
+                return \App\Models\TeacherSubject::where('teacher_id', $user->id)
+                    ->where('class_id', $score->class_id)
+                    ->where('is_active', true)
+                    ->exists();
+            });
             
             if (!$isFormTeacher && !$isSubjectTeacher) {
                 return response()->json(['message' => 'You can only manage scores for students in your assigned classes'], 403);
@@ -416,6 +432,11 @@ class ScoreController extends Controller
             'exam_score' => $request->exam_score,
             'remark' => $request->remark,
         ]);
+
+        // Invalidate related caches
+        \App\Helpers\CacheHelper::invalidateStudentScores($score->student_id, $score->academic_session_id, $score->subject_id, $score->term);
+        \App\Helpers\CacheHelper::invalidatePositions($score->class_id, $score->term, $score->academic_session_id);
+        \App\Helpers\CacheHelper::invalidateDashboard();
 
         return response()->json($score->load(['student', 'subject', 'schoolClass']));
     }
@@ -433,12 +454,14 @@ class ScoreController extends Controller
 
         $teacher = $request->user();
         
-        // Check if teacher is assigned to teach this subject in this class
-        $assignment = TeacherSubject::where('teacher_id', $teacher->id)
-                                   ->where('subject_id', $request->subject_id)
-                                   ->where('class_id', $request->class_id)
-                                   ->where('is_active', true)
-                                   ->first();
+        // Check if teacher is assigned to teach this subject in this class (cached)
+        $assignment = \App\Helpers\CacheHelper::getTeacherAssignments($teacher->id, function() use ($teacher, $request) {
+            return TeacherSubject::where('teacher_id', $teacher->id)
+                ->where('subject_id', $request->subject_id)
+                ->where('class_id', $request->class_id)
+                ->where('is_active', true)
+                ->first();
+        });
 
         if (!$assignment) {
             return response()->json(['message' => 'You are not assigned to teach this subject in this class'], 403);
@@ -479,11 +502,13 @@ class ScoreController extends Controller
             if ($class->form_teacher_id === $user->id) {
                 // Form teacher can view all results
             } else {
-                // Check if user is assigned to teach any subject in this class
-                $teacherAssignment = \App\Models\TeacherSubject::where('teacher_id', $user->id)
-                                                              ->where('class_id', $class->id)
-                                                              ->where('is_active', true)
-                                                              ->first();
+                // Check if user is assigned to teach any subject in this class (cached)
+                $teacherAssignment = \App\Helpers\CacheHelper::getTeacherAssignments($user->id, function() use ($user, $class) {
+                    return \App\Models\TeacherSubject::where('teacher_id', $user->id)
+                        ->where('class_id', $class->id)
+                        ->where('is_active', true)
+                        ->first();
+                });
                 
                 if (!$teacherAssignment) {
                     return response()->json(['message' => 'You can only view results for students in your assigned classes'], 403);
@@ -503,11 +528,13 @@ class ScoreController extends Controller
             $query->where('academic_session_id', $academicSessionId);
         }
         
-        // If user is a teacher (not admin), filter by subjects they are assigned to teach
+        // If user is a teacher (not admin), filter by subjects they are assigned to teach (cached)
         if ($user->isTeacher() && !$user->isAdmin()) {
-            $assignedSubjectIds = TeacherSubject::where('teacher_id', $user->id)
-                                              ->where('is_active', true)
-                                              ->pluck('subject_id');
+            $assignedSubjectIds = \App\Helpers\CacheHelper::getTeacherAssignments($user->id, function() use ($user) {
+                return TeacherSubject::where('teacher_id', $user->id)
+                    ->where('is_active', true)
+                    ->pluck('subject_id');
+            });
             
             if ($assignedSubjectIds->isNotEmpty()) {
                 $query->whereIn('subject_id', $assignedSubjectIds);
@@ -567,11 +594,13 @@ class ScoreController extends Controller
             $query->where('academic_session_id', $academicSessionId);
         }
         
-        // If user is a teacher (not admin), filter by subjects they are assigned to teach
+        // If user is a teacher (not admin), filter by subjects they are assigned to teach (cached)
         if ($user->isTeacher() && !$user->isAdmin()) {
-            $assignedSubjectIds = TeacherSubject::where('teacher_id', $user->id)
-                                              ->where('is_active', true)
-                                              ->pluck('subject_id');
+            $assignedSubjectIds = \App\Helpers\CacheHelper::getTeacherAssignments($user->id, function() use ($user) {
+                return TeacherSubject::where('teacher_id', $user->id)
+                    ->where('is_active', true)
+                    ->pluck('subject_id');
+            });
             
             if ($assignedSubjectIds->isNotEmpty()) {
                 $query->whereIn('subject_id', $assignedSubjectIds);
@@ -607,11 +636,13 @@ class ScoreController extends Controller
             return response()->json(['message' => 'Access denied. You can only view results for students in classes where you are the form teacher.'], 403);
         }
         
-        // Get scores for subjects the teacher is assigned to teach in this class
-        $assignedSubjectIds = TeacherSubject::where('teacher_id', $teacher->id)
-                                          ->where('class_id', $student->class_id)
-                                          ->where('is_active', true)
-                                          ->pluck('subject_id');
+        // Get scores for subjects the teacher is assigned to teach in this class (cached)
+        $assignedSubjectIds = \App\Helpers\CacheHelper::getTeacherAssignments($teacher->id, function() use ($teacher, $student) {
+            return TeacherSubject::where('teacher_id', $teacher->id)
+                ->where('class_id', $student->class_id)
+                ->where('is_active', true)
+                ->pluck('subject_id');
+        });
         
         // Get academic session - default to current if not specified
         $academicSessionId = $request->academic_session_id ?? AcademicSession::current()?->id;

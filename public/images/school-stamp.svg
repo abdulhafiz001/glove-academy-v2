@@ -1,0 +1,45 @@
+<svg width="400" height="400" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="90" fill="none" stroke="#000" stroke-width="3" />
+  <circle cx="100" cy="100" r="72" fill="none" stroke="#000" stroke-width="1.5" stroke-dasharray="3,2" />
+
+  <g font-family="Arial, sans-serif" font-size="16" font-weight="900" text-anchor="middle">
+    <text x="33.03" y="88.19" transform="rotate(-80 33.03 88.19)">G</text>
+    <text x="37.09" y="74.19" transform="rotate(-67.69 37.09 74.19)">-</text>
+    <text x="44.04" y="61.37" transform="rotate(-55.38 44.04 61.37)">L</text>
+    <text x="53.56" y="50.33" transform="rotate(-43.08 53.56 50.33)">O</text>
+    <text x="65.21" y="41.57" transform="rotate(-30.77 65.21 41.57)">V</text>
+    <text x="78.47" y="35.50" transform="rotate(-18.46 78.47 35.50)">E</text>
+    <text x="107.29" y="32.39" transform="rotate(6.15 107.29 32.39)">A</text>
+    <text x="121.53" y="35.50" transform="rotate(18.46 121.53 35.50)">C</text>
+    <text x="134.79" y="41.57" transform="rotate(30.77 134.79 41.57)">A</text>
+    <text x="146.44" y="50.33" transform="rotate(43.08 146.44 50.33)">D</text>
+    <text x="155.96" y="61.37" transform="rotate(55.38 155.96 61.37)">E</text>
+    <text x="162.91" y="74.19" transform="rotate(67.69 162.91 74.19)">M</text>
+    <text x="166.97" y="88.19" transform="rotate(80 166.97 88.19)">Y</text>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="14" font-weight="900" text-anchor="middle">
+    <text x="163.90" y="123.26" transform="rotate(-70 163.90 123.26)">L</text>
+    <text x="156.37" y="138.03" transform="rotate(-56 156.37 138.03)">U</text>
+    <text x="145.50" y="150.53" transform="rotate(-42 145.50 150.53)">G</text>
+    <text x="131.92" y="160.04" transform="rotate(-28 131.92 160.04)">B</text>
+    <text x="116.45" y="165.98" transform="rotate(-14 116.45 165.98)">E</text>
+    <text x="83.55" y="165.98" transform="rotate(14 83.55 165.98)">A</text>
+    <text x="68.08" y="160.04" transform="rotate(28 68.08 160.04)">B</text>
+    <text x="54.50" y="150.53" transform="rotate(42 54.50 150.53)">U</text>
+    <text x="43.63" y="138.03" transform="rotate(56 43.63 138.03)">J</text>
+    <text x="36.10" y="123.26" transform="rotate(70 36.10 123.26)">A</text>
+  </g>
+
+  <text x="100" y="55" font-weight="bold" font-size="14" text-anchor="middle">:</text>
+  <text x="175" y="110" font-weight="bold" font-size="14" text-anchor="middle" transform="rotate(90 175 110)">:</text>
+
+  <text x="100" y="85" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle">DATE</text>
+  <line x1="55" y1="100" x2="145" y2="100" stroke="black" stroke-width="2" stroke-dasharray="4,2" />
+
+  <text x="100" y="120" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle">SIGN.</text>
+  <line x1="55" y1="130" x2="145" y2="130" stroke="black" stroke-width="2" stroke-dasharray="4,2" />
+
+  <path d="M 85,145 C 95,140 110,120 125,90 M 125,90 L 145,135 L 120,135 C 110,145 100,155 90,140 C 85,130 100,120 115,125 C 125,130 115,145 105,150"
+        fill="none" stroke="#2b3292" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

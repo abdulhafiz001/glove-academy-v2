@@ -334,6 +334,10 @@ class AdminController extends Controller
             'is_active' => true,
         ]);
 
+        // Invalidate teacher assignments cache
+        \App\Helpers\CacheHelper::invalidateTeacherAssignments($request->teacher_id);
+        \App\Helpers\CacheHelper::invalidateDashboard();
+
         return response()->json([
             'message' => 'Teacher assigned successfully',
             'assignment' => $assignment->load(['teacher', 'subject', 'schoolClass']),
@@ -345,7 +349,12 @@ class AdminController extends Controller
      */
     public function removeTeacherAssignment(TeacherSubject $assignment)
     {
+        $teacherId = $assignment->teacher_id;
         $assignment->update(['is_active' => false]);
+        
+        // Invalidate teacher assignments cache
+        \App\Helpers\CacheHelper::invalidateTeacherAssignments($teacherId);
+        \App\Helpers\CacheHelper::invalidateDashboard();
         
         return response()->json(['message' => 'Teacher assignment removed successfully']);
     }

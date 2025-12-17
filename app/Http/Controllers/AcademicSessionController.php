@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\AcademicSession;
 use App\Models\Term;
+use App\Helpers\CacheHelper;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class AcademicSessionController extends Controller
@@ -126,17 +128,26 @@ class AcademicSessionController extends Controller
      */
     public function current()
     {
-        $this->updateSessionStatuses();
-        
-        $currentSession = AcademicSession::current();
-        $currentTerm = Term::current();
-
-        return response()->json([
-            'session' => $currentSession,
-            'term' => $currentTerm,
-            'has_session' => $currentSession !== null,
-            'has_term' => $currentTerm !== null,
-        ]);
+        return CacheHelper::getCurrentSessionTerm(function() {
+            // Only update statuses periodically (every 5 minutes)
+            $lastUpdate = Cache::get(CacheHelper::SESSION_STATUS_UPDATE_KEY, 0);
+            $now = time();
+            
+            if ($now - $lastUpdate > 300) { // 5 minutes
+                $this->updateSessionStatuses();
+                Cache::put(CacheHelper::SESSION_STATUS_UPDATE_KEY, $now, 600);
+            }
+            
+            $currentSession = AcademicSession::current();
+            $currentTerm = Term::current();
+            
+            return [
+                'session' => $currentSession,
+                'term' => $currentTerm,
+                'has_session' => $currentSession !== null,
+                'has_term' => $currentTerm !== null,
+            ];
+        });
     }
 
     /**
@@ -198,6 +209,10 @@ class AcademicSessionController extends Controller
             DB::commit();
             $session->load('terms');
             
+            // Invalidate cache
+            CacheHelper::invalidateSessions();
+            CacheHelper::invalidateCurrentSessionTerm();
+            
             return response()->json([
                 'message' => 'Academic session created successfully',
                 'session' => $session,
@@ -256,6 +271,10 @@ class AcademicSessionController extends Controller
             DB::commit();
             $academicSession->load('terms');
             
+            // Invalidate cache
+            CacheHelper::invalidateSessions();
+            CacheHelper::invalidateCurrentSessionTerm();
+            
             return response()->json([
                 'message' => 'Academic session updated successfully',
                 'session' => $academicSession,
@@ -312,6 +331,10 @@ class AcademicSessionController extends Controller
             $academicSession->load('terms');
             
             DB::commit();
+            
+            // Invalidate cache
+            CacheHelper::invalidateSessions();
+            CacheHelper::invalidateCurrentSessionTerm();
 
             // Prepare response message
             $message = 'Current academic session updated';
@@ -364,6 +387,9 @@ class AcademicSessionController extends Controller
             
             DB::commit();
             
+            // Invalidate cache
+            \App\Helpers\CacheHelper::invalidateCurrentSessionTerm();
+            
             return response()->json([
                 'message' => 'Current term updated',
                 'term' => $term,
@@ -408,6 +434,9 @@ class AcademicSessionController extends Controller
             $term->load('academicSession');
             
             DB::commit();
+            
+            // Invalidate cache
+            \App\Helpers\CacheHelper::invalidateCurrentSessionTerm();
             
             return response()->json([
                 'message' => 'Term updated successfully',

@@ -234,22 +234,102 @@
             border-top: 1px solid #e2e8f0;
             padding-top: 8px;
         }
-        .signature-section {
+        .stamp-section {
             margin-top: 20px;
             display: table;
             width: 100%;
         }
-        .signature-box {
+        .stamp-container {
             display: table-cell;
-            width: 33.33%;
+            width: 100%;
             text-align: center;
             padding: 10px;
+            vertical-align: middle;
         }
-        .signature-line {
-            border-top: 1px solid #2d3748;
-            margin-top: 40px;
-            padding-top: 5px;
+        .school-stamp {
+            display: inline-block;
+            width: 180px;
+            height: 180px;
+            position: relative;
+            margin: 0 auto;
+        }
+        .stamp-image {
+            width: 180px;
+            height: 180px;
+            display: block;
+            margin: 0 auto;
+            object-fit: contain;
+        }
+        .stamp-circle-outer {
+            width: 100%;
+            height: 100%;
+            border: 3px solid #000;
+            border-radius: 50%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .stamp-circle-inner {
+            width: 75%;
+            height: 75%;
+            border: 1px dashed #000;
+            border-radius: 50%;
+            position: absolute;
+            top: 12.5%;
+            left: 12.5%;
+        }
+        .stamp-text-top {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            font-weight: bold;
+            color: #000;
+            white-space: nowrap;
+        }
+        .stamp-text-left {
+            position: absolute;
+            left: 10%;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
             font-size: 9px;
+            color: #000;
+            white-space: nowrap;
+        }
+        .stamp-date {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            font-weight: bold;
+            color: #000;
+        }
+        .stamp-date-line {
+            position: absolute;
+            top: 45%;
+            left: 20%;
+            width: 60%;
+            border-top: 1px dashed #000;
+        }
+        .stamp-sign {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            font-weight: bold;
+            color: #000;
+        }
+        .stamp-signature {
+            position: absolute;
+            top: 60%;
+            left: 30%;
+            width: 40%;
+            height: 15px;
+            border-bottom: 2px solid #0066cc;
+            transform: rotate(-5deg);
         }
     </style>
 </head>
@@ -343,13 +423,14 @@
     <table>
         <thead>
             <tr>
-                <th style="width: 5%;">S/N</th>
-                <th class="text-left" style="width: 25%;">Subject</th>
-                <th style="width: 10%;">1st CA</th>
-                <th style="width: 10%;">2nd CA</th>
-                <th style="width: 10%;">Exam</th>
-                <th style="width: 10%;">Total</th>
-                <th style="width: 10%;">Grade</th>
+                <th style="width: 4%;">S/N</th>
+                <th class="text-left" style="width: 20%;">Subject</th>
+                <th style="width: 8%;">1st CA</th>
+                <th style="width: 8%;">2nd CA</th>
+                <th style="width: 8%;">Exam</th>
+                <th style="width: 8%;">Total</th>
+                <th style="width: 8%;">Position</th>
+                <th style="width: 8%;">Grade</th>
                 <th style="width: 20%;">Remark</th>
             </tr>
         </thead>
@@ -362,13 +443,14 @@
                     <td>{{ $score->second_ca ?? '-' }}</td>
                     <td>{{ $score->exam_score ?? '-' }}</td>
                     <td><strong>{{ number_format($score->total_score, 1) }}</strong></td>
+                    <td><strong>{{ $score->subject_position_formatted ?? '-' }}</strong></td>
                     <td><strong>{{ $score->grade ?? '-' }}</strong></td>
                     <td>{{ $score->remark ?? '-' }}</td>
                 </tr>
             @endforeach
             @if($scores->isEmpty())
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 15px; color: #666;">No scores recorded for this term.</td>
+                    <td colspan="9" style="text-align: center; padding: 15px; color: #666;">No scores recorded for this term.</td>
                 </tr>
             @endif
         </tbody>
@@ -385,8 +467,8 @@
             <div class="summary-value">{{ number_format($averageScore, 1) }}%</div>
         </div>
         <div class="summary-box">
-            <div class="summary-label">Overall Grade</div>
-            <div class="summary-value">{{ $overallGrade }}</div>
+            <div class="summary-label">Overall Position</div>
+            <div class="summary-value">{{ $overallPositionFormatted ?? 'N/A' }}<span style="font-size: 10px; color: #666;">/{{ $totalStudentsInClass ?? 0 }}</span></div>
         </div>
     </div>
 
@@ -493,22 +575,35 @@
         </table>
     </div>
 
-    <!-- Signatures -->
-    <div class="signature-section">
-        <div class="signature-box">
-            <div class="signature-line">Class Teacher</div>
-        </div>
-        <div class="signature-box">
-            <div class="signature-line">Principal</div>
-        </div>
-        <div class="signature-box">
-            <div class="signature-line">Date</div>
+    <!-- School Stamp -->
+    <div class="stamp-section">
+        <div class="stamp-container">
+            @php
+                $stampPath = public_path('images/school-stamp.svg');
+                $stampBase64 = file_exists($stampPath)
+                    ? 'data:image/svg+xml;base64,' . base64_encode(file_get_contents($stampPath))
+                    : null;
+            @endphp
+            @if($stampBase64)
+                <img src="{{ $stampBase64 }}" alt="School Stamp" class="stamp-image" />
+            @else
+                <div class="school-stamp">
+                    <div class="stamp-circle-outer"></div>
+                    <div class="stamp-circle-inner"></div>
+                    <div class="stamp-text-top">G-LOVE ACADEMY</div>
+                    <div class="stamp-text-left">LUGBE ABUJA</div>
+                    <div class="stamp-date">DATE</div>
+                    <div class="stamp-date-line"></div>
+                    <div class="stamp-sign">SIGN.</div>
+                    <div class="stamp-signature"></div>
+                </div>
+            @endif
         </div>
     </div>
 
     <!-- Footer -->
-    <div class="footer">
+    <!-- <div class="footer">
         <p>This is a computer-generated report. Generated on {{ date('F j, Y') }} at {{ date('g:i A') }}</p>
-    </div>
+    </div> -->
 </body>
 </html>

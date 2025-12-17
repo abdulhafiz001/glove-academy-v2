@@ -9,6 +9,7 @@ use App\Models\Score;
 use App\Models\AcademicSession;
 use App\Models\Term;
 use App\Models\StudentClassHistory;
+use App\Helpers\CacheHelper;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReportController extends Controller
@@ -84,6 +85,115 @@ class ReportController extends Controller
 
         // Determine overall grade
         $overallGrade = $this->calculateGrade($averageScore);
+
+        // Calculate subject positions and overall position (cached)
+        $classId = $sessionClass->id;
+        
+        // Get cached positions or calculate
+        $positions = CacheHelper::getPositions($classId, $term, $academicSessionId, function() use ($classId, $term, $academicSessionId) {
+            // Get all students who were in the same class during this session
+            $classmates = StudentClassHistory::where('academic_session_id', $academicSessionId)
+                ->where('class_id', $classId)
+                ->with('student')
+                ->get()
+                ->pluck('student')
+                ->filter()
+                ->where('is_active', true);
+            
+            // Get all scores for this class/term/session
+            $allScores = Score::where('class_id', $classId)
+                ->where('term', $term)
+                ->where('academic_session_id', $academicSessionId)
+                ->where('is_active', true)
+                ->with('subject')
+                ->get();
+            
+            // Calculate subject positions for all students
+            $subjectPositions = [];
+            foreach ($allScores->groupBy('subject_id') as $subjectId => $subjectScores) {
+                $sorted = $subjectScores->sortByDesc('total_score')->values();
+                foreach ($sorted as $index => $score) {
+                    $studentId = $score->student_id;
+                    if (!isset($subjectPositions[$studentId])) {
+                        $subjectPositions[$studentId] = [];
+                    }
+                    
+                    // Handle ties
+                    $position = $index + 1;
+                    for ($i = 0; $i < $index; $i++) {
+                        if ($sorted[$i]->total_score == $score->total_score) {
+                            $position--;
+                            break;
+                        }
+                    }
+                    
+                    $subjectPositions[$studentId][$subjectId] = [
+                        'position' => $position,
+                        'formatted' => $this->formatPosition($position),
+                    ];
+                }
+            }
+            
+            // Calculate overall positions
+            $totals = [];
+            foreach ($classmates as $classmate) {
+                $classmateScores = Score::where('student_id', $classmate->id)
+                    ->where('term', $term)
+                    ->where('academic_session_id', $academicSessionId)
+                    ->where('is_active', true)
+                    ->get();
+                
+                $totals[] = [
+                    'student_id' => $classmate->id,
+                    'total' => $classmateScores->sum('total_score'),
+                ];
+            }
+            
+            usort($totals, function ($a, $b) {
+                return $b['total'] <=> $a['total'];
+            });
+            
+            $overallPositions = [];
+            foreach ($totals as $index => $total) {
+                $position = $index + 1;
+                for ($i = 0; $i < $index; $i++) {
+                    if ($totals[$i]['total'] == $total['total']) {
+                        $position--;
+                        break;
+                    }
+                }
+                
+                $overallPositions[$total['student_id']] = [
+                    'position' => $position,
+                    'formatted' => $this->formatPosition($position),
+                    'total_students' => count($totals),
+                ];
+            }
+            
+            return [
+                'subject_positions' => $subjectPositions,
+                'overall_positions' => $overallPositions,
+            ];
+        });
+        
+        // Apply cached positions to scores
+        $scoresWithPositions = $scores->map(function ($score) use ($positions, $studentId) {
+            $subjectId = $score->subject_id;
+            $positionData = $positions['subject_positions'][$studentId][$subjectId] ?? null;
+            
+            if ($positionData) {
+                $score->subject_position = $positionData['position'];
+                $score->subject_position_formatted = $positionData['formatted'];
+            }
+            
+            return $score;
+        });
+        
+        // Get overall position
+        $overallPositionData = $positions['overall_positions'][$studentId] ?? null;
+        $overallPosition = $overallPositionData['position'] ?? 1;
+        $overallPositionFormatted = $overallPositionData['formatted'] ?? '1st';
+        $totalStudentsInClass = $overallPositionData['total_students'] ?? 0;
         
         // Get promotion status for third term
         $promotionStatus = null;
@@ -162,7 +272,7 @@ class ReportController extends Controller
         
         $data = [
             'student' => $studentForDisplay,
-            'scores' => $scores,
+            'scores' => $scoresWithPositions,
             'term' => ucfirst($term) . ' Term',
             'academicSession' => $academicSession,
             'totalScore' => $totalScore,
@@ -172,6 +282,9 @@ class ReportController extends Controller
             'promotionStatus' => $promotionStatus,
             'isThirdTerm' => $isThirdTerm,
             'thirdTermFinalAverage' => $thirdTermFinalAverage,
+            'overallPosition' => $overallPosition,
+            'overallPositionFormatted' => $overallPositionFormatted,
+            'totalStudentsInClass' => $totalStudentsInClass,
         ];
 
         $pdf = Pdf::loadView('reports.student-report-card', $data);
@@ -203,6 +316,20 @@ class ReportController extends Controller
         if ($score >= 50) return 'D';
         if ($score >= 40) return 'E';
         return 'F';
+    }
+
+    /**
+     * Format position number to ordinal (1st, 2nd, 3rd, etc.)
+     */
+    private function formatPosition($position)
+    {
+        $suffixes = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
+        
+        if (($position % 100) >= 11 && ($position % 100) <= 13) {
+            return $position . 'th';
+        }
+        
+        return $position . ($suffixes[$position % 10] ?? 'th');
     }
 
     /**

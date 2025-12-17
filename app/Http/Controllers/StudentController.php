@@ -366,19 +366,153 @@ class StudentController extends Controller
         
         $scores = $query->get();
 
-        // Group scores by academic session and term
+        // Group scores by academic session and term, and calculate positions
         $resultsBySession = [];
-        foreach ($scores as $score) {
-            $sessionName = $score->academicSession->name ?? 'Unknown Session';
-            $term = ucfirst($score->term ?? 'first') . ' Term';
+        foreach ($scores->groupBy('academic_session_id') as $sessionId => $sessionScores) {
+            $session = \App\Models\AcademicSession::find($sessionId);
+            $sessionName = $session->name ?? 'Unknown Session';
             
-            if (!isset($resultsBySession[$sessionName])) {
-                $resultsBySession[$sessionName] = [];
+            // Get class history for this session
+            $classHistory = \App\Models\StudentClassHistory::where('student_id', $student->id)
+                ->where('academic_session_id', $sessionId)
+                ->with('schoolClass')
+                ->first();
+            
+            $classId = $classHistory ? $classHistory->class_id : $student->class_id;
+            
+            // Get all classmates for this session
+            $classmates = \App\Models\StudentClassHistory::where('academic_session_id', $sessionId)
+                ->where('class_id', $classId)
+                ->with('student')
+                ->get()
+                ->pluck('student')
+                ->filter()
+                ->where('is_active', true);
+            
+            foreach ($sessionScores->groupBy('term') as $term => $termScores) {
+                $termFormatted = ucfirst($term) . ' Term';
+                
+                // Get cached positions or calculate
+                $positions = \App\Helpers\CacheHelper::getPositions($classId, $term, $sessionId, function() use ($classId, $term, $sessionId) {
+                    // Get all students who were in the same class during this session
+                    $classmates = \App\Models\StudentClassHistory::where('academic_session_id', $sessionId)
+                        ->where('class_id', $classId)
+                        ->with('student')
+                        ->get()
+                        ->pluck('student')
+                        ->filter()
+                        ->where('is_active', true);
+                    
+                    // Get all scores for this class/term/session
+                    $allScores = \App\Models\Score::where('class_id', $classId)
+                        ->where('term', $term)
+                        ->where('academic_session_id', $sessionId)
+                        ->where('is_active', true)
+                        ->with('subject')
+                        ->get();
+                    
+                    // Calculate subject positions for all students
+                    $subjectPositions = [];
+                    foreach ($allScores->groupBy('subject_id') as $subjectId => $subjectScores) {
+                        $sorted = $subjectScores->sortByDesc('total_score')->values();
+                        foreach ($sorted as $index => $score) {
+                            $studentId = $score->student_id;
+                            if (!isset($subjectPositions[$studentId])) {
+                                $subjectPositions[$studentId] = [];
+                            }
+                            
+                            // Handle ties
+                            $position = $index + 1;
+                            for ($i = 0; $i < $index; $i++) {
+                                if ($sorted[$i]->total_score == $score->total_score) {
+                                    $position--;
+                                    break;
+                                }
+                            }
+                            
+                            $subjectPositions[$studentId][$subjectId] = [
+                                'position' => $position,
+                                'formatted' => $this->formatPosition($position),
+                            ];
+                        }
+                    }
+                    
+                    // Calculate overall positions
+                    $totals = [];
+                    foreach ($classmates as $classmate) {
+                        $classmateScores = \App\Models\Score::where('student_id', $classmate->id)
+                            ->where('term', $term)
+                            ->where('academic_session_id', $sessionId)
+                            ->where('is_active', true)
+                            ->get();
+                        
+                        $totals[] = [
+                            'student_id' => $classmate->id,
+                            'total' => $classmateScores->sum('total_score'),
+                        ];
+                    }
+                    
+                    usort($totals, function ($a, $b) {
+                        return $b['total'] <=> $a['total'];
+                    });
+                    
+                    $overallPositions = [];
+                    foreach ($totals as $index => $total) {
+                        $position = $index + 1;
+                        for ($i = 0; $i < $index; $i++) {
+                            if ($totals[$i]['total'] == $total['total']) {
+                                $position--;
+                                break;
+                            }
+                        }
+                        
+                        $overallPositions[$total['student_id']] = [
+                            'position' => $position,
+                            'formatted' => $this->formatPosition($position),
+                            'total_students' => count($totals),
+                        ];
+                    }
+                    
+                    return [
+                        'subject_positions' => $subjectPositions,
+                        'overall_positions' => $overallPositions,
+                    ];
+                });
+                
+                // Apply cached positions to scores
+                $scoresWithPositions = $termScores->map(function ($score) use ($positions, $student) {
+                    $subjectId = $score->subject_id;
+                    $positionData = $positions['subject_positions'][$student->id][$subjectId] ?? null;
+                    
+                    if ($positionData) {
+                        $score->subject_position = $positionData['position'];
+                        $score->subject_position_formatted = $positionData['formatted'];
+                    }
+                    
+                    return $score;
+                });
+                
+                // Get overall position
+                $overallPositionData = $positions['overall_positions'][$student->id] ?? null;
+                $overallPosition = $overallPositionData['position'] ?? 1;
+                $overallPositionFormatted = $overallPositionData['formatted'] ?? '1st';
+                $totalStudentsInClass = $overallPositionData['total_students'] ?? 0;
+                
+                if (!isset($resultsBySession[$sessionName])) {
+                    $resultsBySession[$sessionName] = [];
+                }
+                if (!isset($resultsBySession[$sessionName][$termFormatted])) {
+                    $resultsBySession[$sessionName][$termFormatted] = [];
+                }
+                
+                // Add position metadata to each score
+                foreach ($scoresWithPositions as $score) {
+                    $score->overall_position = $overallPosition;
+                    $score->overall_position_formatted = $overallPositionFormatted;
+                    $score->total_students_in_class = $totalStudentsInClass;
+                    $resultsBySession[$sessionName][$termFormatted][] = $score;
+                }
             }
-            if (!isset($resultsBySession[$sessionName][$term])) {
-                $resultsBySession[$sessionName][$term] = [];
-            }
-            $resultsBySession[$sessionName][$term][] = $score;
         }
 
         // Get class history for each session to show correct class
@@ -405,6 +539,20 @@ class StudentController extends Controller
             'admission_session' => $student->admissionAcademicSession,
             'admission_term' => $student->admission_term,
         ]);
+    }
+
+    /**
+     * Format position number to ordinal (1st, 2nd, 3rd, etc.)
+     */
+    private function formatPosition($position)
+    {
+        $suffixes = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
+        
+        if (($position % 100) >= 11 && ($position % 100) <= 13) {
+            return $position . 'th';
+        }
+        
+        return $position . ($suffixes[$position % 10] ?? 'th');
     }
 
     /**
