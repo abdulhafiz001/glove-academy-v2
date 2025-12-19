@@ -415,6 +415,9 @@ class StudentController extends Controller
                     $subjectPositions = [];
                     foreach ($allScores->groupBy('subject_id') as $subjectId => $subjectScores) {
                         $sorted = $subjectScores->sortByDesc('total_score')->values();
+                        // Get total students for this subject (students who have scores)
+                        $totalStudentsForSubject = $sorted->unique('student_id')->count();
+                        
                         foreach ($sorted as $index => $score) {
                             $studentId = $score->student_id;
                             if (!isset($subjectPositions[$studentId])) {
@@ -432,7 +435,7 @@ class StudentController extends Controller
                             
                             $subjectPositions[$studentId][$subjectId] = [
                                 'position' => $position,
-                                'formatted' => $this->formatPosition($position),
+                                'formatted' => $this->formatPosition($position, $totalStudentsForSubject),
                             ];
                         }
                     }
@@ -466,10 +469,11 @@ class StudentController extends Controller
                             }
                         }
                         
+                        $totalStudents = count($totals);
                         $overallPositions[$total['student_id']] = [
                             'position' => $position,
-                            'formatted' => $this->formatPosition($position),
-                            'total_students' => count($totals),
+                            'formatted' => $this->formatPosition($position, $totalStudents),
+                            'total_students' => $totalStudents,
                         ];
                     }
                     
@@ -542,17 +546,39 @@ class StudentController extends Controller
     }
 
     /**
-     * Format position number to ordinal (1st, 2nd, 3rd, etc.)
+     * Format position number to ordinal (1st, 2nd, 3rd) or percentile (Top X%)
+     * Only shows exact positions for top 3, others show percentile
      */
-    private function formatPosition($position)
+    private function formatPosition($position, $totalStudents = null)
     {
-        $suffixes = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
-        
-        if (($position % 100) >= 11 && ($position % 100) <= 13) {
-            return $position . 'th';
+        // Show exact position for top 3 with total count if available
+        if ($position <= 3) {
+            $suffixes = ['th', 'st', 'nd', 'rd'];
+            
+            if (($position % 100) >= 11 && ($position % 100) <= 13) {
+                $ordinal = $position . 'th';
+            } else {
+                $ordinal = $position . ($suffixes[$position % 10] ?? 'th');
+            }
+
+            if ($totalStudents) {
+                return "{$ordinal} / {$totalStudents}";
+            }
+
+            return $ordinal;
         }
         
-        return $position . ($suffixes[$position % 10] ?? 'th');
+        // For positions beyond 3rd, calculate and show accurate percentile
+        if ($totalStudents && $totalStudents > 0) {
+            $percentile = (($totalStudents - $position + 1) / $totalStudents) * 100;
+            // Round to the nearest whole number, keeping within 1-99 range
+            $percentile = max(1, min(99, round($percentile)));
+            
+            return "Top {$percentile}%";
+        }
+        
+        // Fallback if total students not available
+        return '-';
     }
 
     /**

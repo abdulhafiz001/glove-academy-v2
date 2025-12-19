@@ -468,7 +468,7 @@
         </div>
         <div class="summary-box">
             <div class="summary-label">Overall Position</div>
-            <div class="summary-value">{{ $overallPositionFormatted ?? 'N/A' }}<span style="font-size: 10px; color: #666;">/{{ $totalStudentsInClass ?? 0 }}</span></div>
+            <div class="summary-value">{{ $overallPositionFormatted ?? 'N/A' }}</div>
         </div>
     </div>
 
