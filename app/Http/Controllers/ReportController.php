@@ -342,8 +342,8 @@ class ReportController extends Controller
         // Show exact position for top 3 with total count if available
         if ($position <= 3) {
             $suffixes = ['th', 'st', 'nd', 'rd'];
-            
-            if (($position % 100) >= 11 && ($position % 100) <= 13) {
+        
+        if (($position % 100) >= 11 && ($position % 100) <= 13) {
                 $ordinal = $position . 'th';
             } else {
                 $ordinal = $position . ($suffixes[$position % 10] ?? 'th');

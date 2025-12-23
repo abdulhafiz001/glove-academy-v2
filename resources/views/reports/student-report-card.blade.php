@@ -587,16 +587,16 @@
             @if($stampBase64)
                 <img src="{{ $stampBase64 }}" alt="School Stamp" class="stamp-image" />
             @else
-                <div class="school-stamp">
-                    <div class="stamp-circle-outer"></div>
-                    <div class="stamp-circle-inner"></div>
-                    <div class="stamp-text-top">G-LOVE ACADEMY</div>
-                    <div class="stamp-text-left">LUGBE ABUJA</div>
-                    <div class="stamp-date">DATE</div>
-                    <div class="stamp-date-line"></div>
-                    <div class="stamp-sign">SIGN.</div>
-                    <div class="stamp-signature"></div>
-                </div>
+            <div class="school-stamp">
+                <div class="stamp-circle-outer"></div>
+                <div class="stamp-circle-inner"></div>
+                <div class="stamp-text-top">G-LOVE ACADEMY</div>
+                <div class="stamp-text-left">LUGBE ABUJA</div>
+                <div class="stamp-date">DATE</div>
+                <div class="stamp-date-line"></div>
+                <div class="stamp-sign">SIGN.</div>
+                <div class="stamp-signature"></div>
+            </div>
             @endif
         </div>
     </div>

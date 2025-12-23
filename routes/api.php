@@ -40,9 +40,14 @@ Route::get('/academic-sessions/current', [AcademicSessionController::class, 'cur
 
 // Public routes with rate limiting for security
 // Using custom throttle middleware for better error handling
-Route::middleware(['throttle.login:5,15'])->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
+// Student login: 5 attempts per 2 minutes
+Route::middleware(['throttle.login:5,2'])->group(function () {
     Route::post('/student/login', [AuthController::class, 'studentLogin']);
+});
+
+// Admin and Teacher login: 5 attempts per 5 minutes
+Route::middleware(['throttle.login:5,5'])->group(function () {
+    Route::post('/login', [AuthController::class, 'login']);
     Route::post('/auth/teacher/login', [AuthController::class, 'login']); // Teacher login uses same endpoint as admin
 });
 
