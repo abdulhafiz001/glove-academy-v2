@@ -71,23 +71,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/admin/users/{user}', [AdminController::class, 'updateUser']);
         Route::delete('/admin/users/{user}', [AdminController::class, 'deleteUser']);
         
-        // Class management
+        // Class management - Static routes MUST come before parameterized routes
         Route::get('/admin/classes', [ClassController::class, 'index']);
         Route::post('/admin/classes', [ClassController::class, 'store']);
+        Route::get('/admin/classes/export', [ImportController::class, 'exportClasses']);
         Route::get('/admin/classes/{class}', [ClassController::class, 'show']);
         Route::put('/admin/classes/{class}', [ClassController::class, 'update']);
         Route::delete('/admin/classes/{class}', [ClassController::class, 'destroy']);
         
-        // Subject management
+        // Subject management - Static routes MUST come before parameterized routes
         Route::get('/admin/subjects', [SubjectController::class, 'index']);
         Route::post('/admin/subjects', [SubjectController::class, 'store']);
+        Route::get('/admin/subjects/export', [ImportController::class, 'exportSubjects']);
         Route::get('/admin/subjects/{subject}', [SubjectController::class, 'show']);
         Route::put('/admin/subjects/{subject}', [SubjectController::class, 'update']);
         Route::delete('/admin/subjects/{subject}', [SubjectController::class, 'destroy']);
         
-        // Teacher assignments
+        // Teacher assignments - Static routes MUST come before parameterized routes
         Route::get('/admin/teacher-assignments', [AdminController::class, 'getTeacherAssignments']);
         Route::post('/admin/teacher-assignments', [AdminController::class, 'assignTeacher']);
+        Route::get('/admin/teachers/export', [ImportController::class, 'exportTeachers']);
         Route::delete('/admin/teacher-assignments/{assignment}', [AdminController::class, 'removeTeacherAssignment']);
         
         // Student management - Static routes MUST come before parameterized routes
@@ -96,6 +99,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Import/Export routes MUST come before {student} route
         Route::post('/admin/students/import', [ImportController::class, 'importStudents']);
         Route::get('/admin/students/export', [ImportController::class, 'exportStudents']);
+        Route::get('/admin/students/export-by-class', [ImportController::class, 'exportStudentsByClass']);
+        Route::get('/admin/students/export-by-class-with-subjects', [ImportController::class, 'exportStudentsByClassWithSubjects']);
         Route::get('/admin/students/import-template', [ImportController::class, 'downloadStudentTemplate']);
         // Specific parameterized routes MUST come before generic {student} routes
         Route::post('/admin/students/{student}/toggle-result-access', [AdminController::class, 'toggleResultAccess']);
@@ -140,6 +145,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/classes/{class}/report', [ReportController::class, 'generateClassReport']);
         Route::post('/admin/scores/import', [ImportController::class, 'importScores']);
         Route::get('/admin/scores/export', [ImportController::class, 'exportScores']);
+        Route::get('/admin/scores/export-by-class-subject', [ImportController::class, 'exportScoresByClassSubject']);
         Route::get('/admin/scores/import-template', [ImportController::class, 'downloadScoreTemplate']);
         
         // Attendance Analysis
