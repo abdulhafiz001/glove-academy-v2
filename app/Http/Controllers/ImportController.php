@@ -745,14 +745,9 @@ class ImportController extends Controller
             return [
                 'Admission Number' => $score->student->admission_number ?? '',
                 'Student Name' => ($score->student->first_name ?? '') . ' ' . ($score->student->last_name ?? ''),
-                'Class' => $score->schoolClass->name ?? '',
-                'Subject' => $score->subject->name ?? '',
-                'Term' => ucfirst($score->term),
                 '1st CA' => $score->first_ca ?? '',
                 '2nd CA' => $score->second_ca ?? '',
                 'Exam' => $score->exam_score ?? '',
-                'Total Score' => $score->total_score ?? '',
-                'Grade' => $score->grade ?? '',
                 'Remark' => $score->remark ?? '',
             ];
         });
@@ -775,14 +770,9 @@ class ImportController extends Controller
                 return [
                     'Admission Number',
                     'Student Name',
-                    'Class',
-                    'Subject',
-                    'Term',
                     '1st CA',
                     '2nd CA',
                     'Exam',
-                    'Total Score',
-                    'Grade',
                     'Remark',
                 ];
             }
