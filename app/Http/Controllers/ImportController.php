@@ -551,7 +551,6 @@ class ImportController extends Controller
                 'Name' => $teacher->name,
                 'Username' => $teacher->username ?? '',
                 'Email' => $teacher->email ?? '',
-                'Phone' => $teacher->phone ?? '',
                 'Assigned Classes' => $assignedClasses ?: 'None',
                 'Assigned Subjects' => $assignedSubjects ?: 'None',
                 'Form Teacher Classes' => $formTeacherClasses ?: 'None',
@@ -579,7 +578,6 @@ class ImportController extends Controller
                     'Name',
                     'Username',
                     'Email',
-                    'Phone',
                     'Assigned Classes',
                     'Assigned Subjects',
                     'Form Teacher Classes',
@@ -777,6 +775,120 @@ class ImportController extends Controller
                 ];
             }
         }, 'scores_export_' . date('Y-m-d') . '.xlsx');
+    }
+
+    /**
+     * Export scores by teacher, class, and multiple subjects
+     */
+    public function exportScoresByTeacherClassSubjects(Request $request)
+    {
+        $request->validate([
+            'teacher_id' => 'required|exists:users,id',
+            'class_id' => 'required|exists:classes,id',
+            'subject_ids' => 'required|array',
+            'subject_ids.*' => 'exists:subjects,id',
+            'teacher_name' => 'nullable|string',
+            'class_name' => 'nullable|string',
+        ]);
+
+        $teacherId = $request->teacher_id;
+        $classId = $request->class_id;
+        $subjectIds = $request->subject_ids;
+        $teacherName = $request->teacher_name ?? 'Teacher';
+        $className = $request->class_name ?? 'Class';
+
+        // Verify teacher is assigned to these class-subject combinations
+        $validAssignments = TeacherSubject::where('teacher_id', $teacherId)
+            ->where('class_id', $classId)
+            ->whereIn('subject_id', $subjectIds)
+            ->where('is_active', true)
+            ->pluck('subject_id')
+            ->toArray();
+
+        if (empty($validAssignments)) {
+            return response()->json([
+                'message' => 'Teacher is not assigned to teach these subjects in this class.',
+            ], 400);
+        }
+
+        // Use only valid subject IDs
+        $validSubjectIds = array_intersect($subjectIds, $validAssignments);
+
+        // Get students in the class who are offering any of these subjects
+        $students = Student::where('class_id', $classId)
+            ->where('is_active', true)
+            ->whereHas('studentSubjects', function ($query) use ($validSubjectIds) {
+                $query->whereIn('subject_id', $validSubjectIds)
+                      ->where('is_active', true);
+            })
+            ->pluck('id');
+
+        $query = Score::with(['student', 'subject', 'schoolClass'])
+            ->where('class_id', $classId)
+            ->whereIn('subject_id', $validSubjectIds)
+            ->whereIn('student_id', $students)
+            ->where('is_active', true);
+
+        $academicSessionId = $request->academic_session_id ?? AcademicSession::current()?->id;
+        if ($academicSessionId) {
+            $query->where('academic_session_id', $academicSessionId);
+        }
+
+        $scores = $query->get();
+
+        // Get subject names for mapping
+        $subjects = Subject::whereIn('id', $validSubjectIds)->pluck('name', 'id');
+
+        // Group scores by subject for better organization
+        $data = collect();
+        foreach ($validSubjectIds as $subjectId) {
+            $subjectScores = $scores->where('subject_id', $subjectId);
+            $subjectName = $subjects[$subjectId] ?? 'Unknown';
+            
+            foreach ($subjectScores as $score) {
+                $data->push([
+                    'Admission Number' => $score->student->admission_number ?? '',
+                    'Student Name' => ($score->student->first_name ?? '') . ' ' . ($score->student->last_name ?? ''),
+                    'Subject' => $subjectName,
+                    '1st CA' => $score->first_ca ?? '',
+                    '2nd CA' => $score->second_ca ?? '',
+                    'Exam' => $score->exam_score ?? '',
+                    'Remark' => $score->remark ?? '',
+                ]);
+            }
+        }
+
+        // Sanitize names for filename
+        $sanitizedTeacherName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $teacherName);
+        $sanitizedClassName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $className);
+        $filename = 'scores_' . $sanitizedTeacherName . '_' . $sanitizedClassName . '_' . date('Y-m-d') . '.xlsx';
+
+        return Excel::download(new class($data) implements FromCollection, WithHeadings {
+            protected $data;
+
+            public function __construct($data)
+            {
+                $this->data = $data;
+            }
+
+            public function collection()
+            {
+                return $this->data;
+            }
+
+            public function headings(): array
+            {
+                return [
+                    'Admission Number',
+                    'Student Name',
+                    'Subject',
+                    '1st CA',
+                    '2nd CA',
+                    'Exam',
+                    'Remark',
+                ];
+            }
+        }, $filename);
     }
 }
 

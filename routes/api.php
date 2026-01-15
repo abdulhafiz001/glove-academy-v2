@@ -146,6 +146,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/scores/import', [ImportController::class, 'importScores']);
         Route::get('/admin/scores/export', [ImportController::class, 'exportScores']);
         Route::get('/admin/scores/export-by-class-subject', [ImportController::class, 'exportScoresByClassSubject']);
+        Route::post('/admin/scores/export-by-teacher-class-subjects', [ImportController::class, 'exportScoresByTeacherClassSubjects']);
         Route::get('/admin/scores/import-template', [ImportController::class, 'downloadScoreTemplate']);
         
         // Attendance Analysis
